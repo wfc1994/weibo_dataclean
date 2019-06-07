@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="com.sleepycat:je:18.3.12" type="repository">
+    <properties maven-id="com.sleepycat:je:18.3.12" />
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/je-18.3.12.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
