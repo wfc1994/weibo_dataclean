@@ -260,27 +260,27 @@ public class Weibo implements Serializable, Comparable<Weibo> {
 
     public JsonObjectBuilder toJson() {
         return Json.createObjectBuilder()
+                .add("sourceWeiboId", sourceWeiboId)
+                .add("isRepost", isRepost)
                 .add("weiboId", weiboId)
                 .add("userId", userId)
+                .add("preWeiboId", preWeiboId)
                 .add("userName", userName)
                 .add("category", category.name())
-                .add("content", content)
                 .add("url", url)
                 .add("time", time.getTime())
                 .add("repostNum", repostNum)
                 .add("commentNum", commentNum)
                 .add("likeNum", likeNum)
                 .add("tag", tag)
-                .add("isRepost", isRepost)
                 .add("preUserId", preUserId)
                 .add("preUserName", preUserName)
                 .add("sourceUserId", sourceUserId)
                 .add("sourceUserName", sourceUserName)
-                .add("preWeiboId", preWeiboId)
-                .add("sourceWeiboId", sourceWeiboId)
                 .add("sourceWeiboRepostNum", sourceWeiboRepostNum)
                 .add("sourceWeiboCommentNum", sourceWeiboCommentNum)
-                .add("sourceWeiboLikeNum", sourceWeiboLikeNum);
+                .add("sourceWeiboLikeNum", sourceWeiboLikeNum)
+                .add("content", content);
     }
 
     public int compareTo(Weibo o) {

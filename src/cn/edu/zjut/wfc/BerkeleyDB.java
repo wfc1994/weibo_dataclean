@@ -1,5 +1,13 @@
 package cn.edu.zjut.wfc;
 
+import cn.edu.zjut.myong.com.weibo.Weibo;
+import cn.edu.zjut.wfc.util.FileTool;
+import com.google.gson.Gson;
+import com.mongodb.DBObject;
+import com.mongodb.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.util.JSON;
 import com.sleepycat.bind.EntryBinding;
 import com.sleepycat.bind.serial.SerialBinding;
 import com.sleepycat.bind.serial.StoredClassCatalog;
@@ -8,6 +16,7 @@ import com.sleepycat.bind.tuple.StringBinding;
 import com.sleepycat.bind.tuple.TupleBinding;
 import com.sleepycat.collections.StoredSortedMap;
 import com.sleepycat.je.*;
+import org.bson.Document;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -122,6 +131,35 @@ public class BerkeleyDB<T> {
         cursor.close();
         // 返回结果
         return data;
+    }
+
+    //遍历一个文件夹中的数据
+    public List<T> getData() {
+        // 连接到 mongodb 服务
+        MongoClient mongoClient = new MongoClient( "localhost" , 27017 );
+        // 连接到数据库
+        MongoDatabase mongoDatabase = mongoClient.getDatabase("weibo2");
+        System.out.println("Connect to database successfully");
+        MongoCollection<Document> collection = mongoDatabase.getCollection("test");
+        System.out.println("集合 test 选择成功");
+
+
+        // DatabaseEntry represents the key and data of each record
+        DatabaseEntry keyEntry = new DatabaseEntry();    DatabaseEntry dataEntry = new DatabaseEntry();
+        // retrieve all data
+        Cursor cursor = db.openCursor(null, null);
+        while (cursor.getNext(keyEntry, dataEntry, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
+            int key = IntegerBinding.entryToInt(keyEntry);
+            T value = bind.entryToObject(dataEntry);
+            Weibo v = (Weibo) value;
+            Document s = new Document();
+            s.append("content",v.toString());
+            collection.insertOne(s);
+        }
+        cursor.close();
+
+        // 返回结果
+        return null;
     }
 
     public boolean contains(String key) {
