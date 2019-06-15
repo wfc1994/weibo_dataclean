@@ -28,9 +28,9 @@ public class Similarity {
      */
     public static double getSimilarity(String sentence1, String sentence2) {
         List<String> sent1Words = getSplitWords(sentence1);
-        System.out.println(sent1Words);
+//        System.out.println(sent1Words);
         List<String> sent2Words = getSplitWords(sentence2);
-        System.out.println(sent2Words);
+//        System.out.println(sent2Words);
         List<String> allWords = mergeList(sent1Words, sent2Words);
 
         int[] statistic1 = statistic(allWords, sent1Words);

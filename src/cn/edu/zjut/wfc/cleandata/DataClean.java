@@ -4,7 +4,6 @@ import cn.edu.zjut.myong.com.weibo.Weibo;
 import cn.edu.zjut.wfc.DBWeibo;
 import cn.edu.zjut.wfc.NodeResult;
 import cn.edu.zjut.wfc.PreNode;
-import cn.edu.zjut.wfc.RootCount;
 import cn.edu.zjut.wfc.util.FileTool;
 import cn.edu.zjut.wfc.util.Similarity;
 import com.mongodb.BasicDBList;
@@ -72,6 +71,33 @@ public class DataClean{
             }
         }
 
+        //构建一个userid和username对应的hashmap，然后判断userid是否要清空,如果是buguserid就把他加入到set中
+        HashMap<String,String> useridlist = new HashMap<>();
+        HashSet<String> buguserid = new HashSet<>();
+        String buguseridflag = "";
+        for (Weibo leafWeibo:WeiboList) {
+            String userId = leafWeibo.getUserId();
+            String userName = leafWeibo.getUserName();
+
+            if (buguserid.contains(userId)) {
+                continue;
+            }
+
+            //检测useridlist中是否包含了userid这个值,如果有这个key,比较他们的username是否一致，如果一致说明userid是bug的
+            if (useridlist.containsKey(userId)) {
+                if (!useridlist.get(userId).equals(userName)) {
+                    buguserid.add(userId);
+                }
+            } else {
+                useridlist.put(userId, userName);
+            }
+
+            if(buguserid.size()!=0){
+                buguseridflag = "_bugid";
+            }
+
+        }
+
         for (Weibo leafWeibo:WeiboList){//遍历每一条微博，找前继节点
 
             //获取当前微博信息
@@ -81,7 +107,7 @@ public class DataClean{
             String userName = leafWeibo.getUserName();
             String category = leafWeibo.getCategory()+"";
             String url = leafWeibo.getUrl();
-            Date time = leafWeibo.getTime();
+            Date time = longToDate(leafWeibo.getTime());
             int repostNum = leafWeibo.getRepostNum();
             int commentNum = leafWeibo.getCommentNum();
             int liekNum = leafWeibo.getLikeNum();
@@ -95,6 +121,13 @@ public class DataClean{
             int sourceWeiboLikeNum = leafWeibo.getSourceWeiboLikeNum();
             String content = leafWeibo.getContent();
 
+            //检测buguserid是否有数据，如果userId是buguserId，则把他清空
+            if(buguserid.size()!=0){
+                if(buguserid.contains(userId)){
+                    userId="";
+                }
+            }
+
             boolean isRepost = true;
             if(weiboId.equals(sourceId)){
                 isRepost = false;
@@ -103,17 +136,17 @@ public class DataClean{
 
             //初始化前继节点的信息，默认sourceWeiboId为前继节点Id，flag为0表示能完全匹配
             PreNode preNode = new PreNode(weiboId, sourceWeiboId, sourceWeiboId, isRepost, 0,"",userId,userName,category,url,time,repostNum,commentNum,liekNum,tag,preUserId,preUserName,sourceUserId,sourceUserName,sourceWeiboRepostNum,sourceWeiboCommentNum,sourceWeiboLikeNum,content);//默认根节点
-            log.info("--------------------------开始---------------------------");
+            log.info("--------------------------开始---------------------------"+sourceWeiboId);
             if (preUserName.equals("")) {//preUserName为空,将当前微博连接到根节点，flag设置为5
                 preNode.setFlag(5);//flag为5表示无前继节点
-                log.info("无前继节点-->"+preUserName);
+//                log.info("无前继节点-->"+preUserName);
                 flag5++;
                 forwardList.add(preNode.toString());
                 continue;//前继节点找到了，重新循环，下一条微博
             }
             List<Weibo> preWeiboList=WeiboMap.get(preUserName);//取出数组,“userName”为preUserName
             if (preWeiboList==null) {//PreWeiboList为空,将当前微博连接到根节点，flag设置为4
-                log.info("前继节点无微博-->"+preWeiboList);
+//                log.info("前继节点无微博-->"+preWeiboList);
                 preNode.setFlag(4);//有userName，无文本
                 flag4++;
                 forwardList.add(preNode.toString());
@@ -125,10 +158,10 @@ public class DataClean{
             int length2 = str.length();
             String tempContent = content.substring(length1 + length2);
             String forwardContent=CleanText(tempContent);//赞[100]去掉，空格去掉
-            log.info("原微博--->"+content);
-            log.info("原微博name--->"+preUserName);
-            log.info("处理后--->"+tempContent);
-            log.info("清理后--->"+forwardContent);
+//            log.info("原微博--->"+content);
+//            log.info("原微博name--->"+preUserName);
+//            log.info("处理后--->"+tempContent);
+//            log.info("清理后--->"+forwardContent);
 
             //各种List
             List<Weibo> preTimeWeiboList = new ArrayList<>();//符合时间条件的存下来
@@ -137,7 +170,7 @@ public class DataClean{
                 //获取当前微博信息
                 String preWeiboId = preWeibo.getWeiboId();
                 String preContent = preWeibo.getContent();
-                Date preTime = preWeibo.getTime();
+                Date preTime = longToDate(preWeibo.getTime());
                 //先匹配时间
                 int compareTo = preTime.compareTo(time);//比较时间,小于返回-1，等于返回0，大于返回1
                 if (compareTo <= 0) {//只要早于或等于原微博，就认为这是前继微博,直接return true
@@ -148,8 +181,8 @@ public class DataClean{
                         preNode.setFlag(0);
                         preNode.setSimilarity("1");
                         flag0++;
-                        log.info("精确匹配--->"+preContent);
-                        log.info("清理后--->"+CleanText(preContent));
+//                        log.info("精确匹配--->"+preContent);
+//                        log.info("清理后--->"+CleanText(preContent));
                         break;
                     } else {//需要模糊匹配
                         preVMWeiboList.add(preWeibo);
@@ -160,7 +193,7 @@ public class DataClean{
             if (preTimeWeiboList.size() <= 0) {//时间匹配不上
                 preNode.setFlag(3);//直接连根节点
                 flag3++;
-                log.info("时间匹配不上--->"+preWeiboList.get(0).getTime());
+//                log.info("时间匹配不上--->"+preWeiboList.get(0).getTime());
             }  else if((preVMWeiboList.size()>0)&&(preNode.getSimilarity().equals(""))){//文本能模糊匹配，相似度>0.7
                 double cScore=0;
                 Weibo cPreVMWeibo=preVMWeiboList.get(0);
@@ -175,17 +208,17 @@ public class DataClean{
                 }
                 preNode.setPreWeiboId(cPreVMWeibo.getWeiboId());
                 preNode.setSimilarity(Double.toString(cScore));
-                log.info("相似度--->"+cScore);
+//                log.info("相似度--->"+cScore);
                 if(cScore>=0.7){
                     preNode.setFlag(1);
                     flag1++;
-                    log.info("模糊匹配--->"+cPreVMWeibo.getContent());
-                    log.info("匹配清理后---->"+CleanText(cPreVMWeibo.getContent()));
+//                    log.info("模糊匹配--->"+cPreVMWeibo.getContent());
+//                    log.info("匹配清理后---->"+CleanText(cPreVMWeibo.getContent()));
                 }else{
                     preNode.setFlag(2);
                     flag2++;
-                    log.info("更模糊匹配--->"+cPreVMWeibo.getContent());
-                    log.info("匹配清理后---->"+CleanText(cPreVMWeibo.getContent()));
+//                    log.info("更模糊匹配--->"+cPreVMWeibo.getContent());
+//                    log.info("匹配清理后---->"+CleanText(cPreVMWeibo.getContent()));
                 }
             }
 
@@ -203,13 +236,225 @@ public class DataClean{
         }
 
         NodeResult result = new NodeResult(sourceId, count, flag0, f0, flag1, f1,flag2, f2,flag3, f3,flag4, f4, flag5, f5);
-        log.info(result.toString());
+//        log.info(result.toString());
         //保存成json文件
         FileTool fileTool = new FileTool();
-        String fileName = "G:\\微博数据\\data\\tree\\treeNode-" + sourceId + ".json";
+        String fileName = "G:\\微博数据\\data2\\tree\\treeNode-" + sourceId + buguseridflag + ".json";
         fileTool.writeByLinestoJson(fileName, forwardList);
         return result;
     }
+
+//    public NodeResult ReadTree(String sourceId, int count, MongoCollection<Weibo> coll) throws IOException {
+//        Logger log = getLogger(sourceId);
+//
+//        //先查找根微博
+//        BasicDBList querylist = new BasicDBList();
+//        BasicDBObject queryroot = new BasicDBObject();
+//        queryroot.put("sourceWeiboId", "");
+//        queryroot.put("weiboId",sourceId);
+//        BasicDBObject querytree = new BasicDBObject();
+//        querytree.put("sourceWeiboId", sourceId);
+//        querylist.add(queryroot);
+//        querylist.add(querytree);
+//        BasicDBObject query = new BasicDBObject();
+//        query.put("$or", querylist);
+//
+//        //查找所有sourceWeiboId为xx的微博，也就是一棵转发树的所有微博内容
+////        FindIterable<Weibo> findIterable = coll.find(query).noCursorTimeout(true);//游标可能超时
+//        MongoCursor<Weibo> cursor = coll.find(query).batchSize(10000).iterator();
+//        List<String> forwardList = new ArrayList<>();//收集转发信息
+//        int flag0 = 0, flag1 = 0, flag2 = 0, flag3 = 0, flag4 = 0, flag5 = 0;//记录匹配类型
+//        double f0=0,f1=0,f2=0,f3=0,f4=0,f5=0;//比率
+//        List<Weibo> WeiboList=new ArrayList<Weibo>();
+//        HashMap<String, List<Weibo>> WeiboMap = new HashMap<>();
+//        List<Weibo> list=null;
+//        //先加入List和Map
+//        while (cursor.hasNext()) {
+//            Weibo weibo=cursor.next();
+//            String UserName = weibo.getUserName();//以userName为key
+//            WeiboList.add(weibo);
+//            list=WeiboMap.get(UserName);//根据key(preUserName)获取value(list)
+//            if (list==null){//list为null,UserName还不在hashMap中
+//                list=new ArrayList<Weibo>();
+//                list.add(weibo);
+//                WeiboMap.put(UserName,list);
+//            }else {//preUserName已经在hashMap中,因此只将weibo添加进去即可，不用put
+//                list.add(weibo);
+//            }
+//        }
+//
+//        //构建一个userid和username对应的hashmap，然后判断userid是否要清空,如果是buguserid就把他加入到set中
+//        HashMap<String,String> useridlist = new HashMap<>();
+//        HashSet<String> buguserid = new HashSet<>();
+//        String buguseridflag = "";
+//        for (Weibo leafWeibo:WeiboList) {
+//            String userId = leafWeibo.getUserId();
+//            String userName = leafWeibo.getUserName();
+//
+//            if (buguserid.contains(userId)) {
+//                continue;
+//            }
+//
+//            //检测useridlist中是否包含了userid这个值,如果有这个key,比较他们的username是否一致，如果一致说明userid是bug的
+//            if (useridlist.containsKey(userId)) {
+//                if (!useridlist.get(userId).equals(userName)) {
+//                    buguserid.add(userId);
+//                }
+//            } else {
+//                useridlist.put(userId, userName);
+//            }
+//
+//            if(buguserid.size()!=0){
+//                buguseridflag = "_bugid";
+//            }
+//
+//        }
+//
+//        for (Weibo leafWeibo:WeiboList){//遍历每一条微博，找前继节点
+//
+//            //获取当前微博信息
+//            String weiboId = leafWeibo.getWeiboId();
+//            String userId = leafWeibo.getUserId();
+//            String sourceWeiboId = leafWeibo.getSourceWeiboId();
+//            String userName = leafWeibo.getUserName();
+//            String category = leafWeibo.getCategory()+"";
+//            String url = leafWeibo.getUrl();
+//            long time = leafWeibo.getTime();
+//            int repostNum = leafWeibo.getRepostNum();
+//            int commentNum = leafWeibo.getCommentNum();
+//            int liekNum = leafWeibo.getLikeNum();
+//            String tag = leafWeibo.getTag();
+//            String  preUserId = leafWeibo.getPreUserId();
+//            String preUserName = leafWeibo.getPreUserName();
+//            String sourceUserId = leafWeibo.getSourceUserId();
+//            String sourceUserName = leafWeibo.getSourceUserName();
+//            int sourceWeiboRepostNum = leafWeibo.getSourceWeiboRepostNum();
+//            int sourceWeiboCommentNum = leafWeibo.getSourceWeiboCommentNum();
+//            int sourceWeiboLikeNum = leafWeibo.getSourceWeiboLikeNum();
+//            String content = leafWeibo.getContent();
+//
+//            //检测buguserid是否有数据，如果userId是buguserId，则把他清空
+//            if(buguserid.size()!=0){
+//                if(buguserid.contains(userId)){
+//                    userId="";
+//                }
+//            }
+//
+//            boolean isRepost = true;
+//            if(weiboId.equals(sourceId)){
+//                isRepost = false;
+//            }
+//
+//
+//            //初始化前继节点的信息，默认sourceWeiboId为前继节点Id，flag为0表示能完全匹配
+//            PreNode preNode = new PreNode(weiboId, sourceWeiboId, sourceWeiboId, isRepost, 0,"",userId,userName,category,url,time,repostNum,commentNum,liekNum,tag,preUserId,preUserName,sourceUserId,sourceUserName,sourceWeiboRepostNum,sourceWeiboCommentNum,sourceWeiboLikeNum,content);//默认根节点
+//            log.info("--------------------------开始---------------------------");
+//            if (preUserName.equals("")) {//preUserName为空,将当前微博连接到根节点，flag设置为5
+//                preNode.setFlag(5);//flag为5表示无前继节点
+//                log.info("无前继节点-->"+preUserName);
+//                flag5++;
+//                forwardList.add(preNode.toString());
+//                continue;//前继节点找到了，重新循环，下一条微博
+//            }
+//            List<Weibo> preWeiboList=WeiboMap.get(preUserName);//取出数组,“userName”为preUserName
+//            if (preWeiboList==null) {//PreWeiboList为空,将当前微博连接到根节点，flag设置为4
+//                log.info("前继节点无微博-->"+preWeiboList);
+//                preNode.setFlag(4);//有userName，无文本
+//                flag4++;
+//                forwardList.add(preNode.toString());
+//                continue;//continue之前将其加入forwardList
+//            }
+//            //截取转发内容
+//            String str = "//@" + preUserName + ":";
+//            int length1 = content.indexOf(str);
+//            int length2 = str.length();
+//            String tempContent = content.substring(length1 + length2);
+//            String forwardContent=CleanText(tempContent);//赞[100]去掉，空格去掉
+//            log.info("原微博--->"+content);
+//            log.info("原微博name--->"+preUserName);
+//            log.info("处理后--->"+tempContent);
+//            log.info("清理后--->"+forwardContent);
+//
+//            //各种List
+//            List<Weibo> preTimeWeiboList = new ArrayList<>();//符合时间条件的存下来
+//            List<Weibo> preVMWeiboList = new ArrayList<>();//startsWith  Vague Match
+//            for(Weibo preWeibo:preWeiboList){//PreWeiboList.size>0
+//                //获取当前微博信息
+//                String preWeiboId = preWeibo.getWeiboId();
+//                String preContent = preWeibo.getContent();
+//                long preTime = preWeibo.getTime();
+//                //先匹配时间
+//                int compareTo = compareTime(preTime,time);//比较时间,小于返回-1，等于返回0，大于返回1
+//                if (compareTo <= 0) {//只要早于或等于原微博，就认为这是前继微博,直接return true
+//                    preTimeWeiboList.add(preWeibo);//时间对，加入
+//                    String cleanPreContent=CleanText(preContent);//去掉赞，必要的清理
+//                    if (cleanPreContent.equals(forwardContent)) {
+//                        preNode.setPreWeiboId(preWeiboId);//只取第一个
+//                        preNode.setFlag(0);
+//                        preNode.setSimilarity("1");
+//                        flag0++;
+//                        log.info("精确匹配--->"+preContent);
+//                        log.info("清理后--->"+CleanText(preContent));
+//                        break;
+//                    } else {//需要模糊匹配
+//                        preVMWeiboList.add(preWeibo);
+//                    }
+//                }
+//            }
+//            //先时间匹配，后精确匹配，后模糊匹配
+//            if (preTimeWeiboList.size() <= 0) {//时间匹配不上
+//                preNode.setFlag(3);//直接连根节点
+//                flag3++;
+//                log.info("时间匹配不上--->"+preWeiboList.get(0).getTime());
+//            }  else if((preVMWeiboList.size()>0)&&(preNode.getSimilarity().equals(""))){//文本能模糊匹配，相似度>0.7
+//                double cScore=0;
+//                Weibo cPreVMWeibo=preVMWeiboList.get(0);
+//                for(Weibo preVMWeibo:preVMWeiboList){
+//                    String preContent=preVMWeibo.getContent();
+//                    String cleanPreContent=CleanText(preContent);//去掉赞
+//                    double score= Similarity.getSimilarity(cleanPreContent,forwardContent);//相似度
+//                    if (score>=cScore){
+//                        cScore=score;
+//                        cPreVMWeibo=preVMWeibo;
+//                    }
+//                }
+//                preNode.setPreWeiboId(cPreVMWeibo.getWeiboId());
+//                preNode.setSimilarity(Double.toString(cScore));
+//                log.info("相似度--->"+cScore);
+//                if(cScore>=0.7){
+//                    preNode.setFlag(1);
+//                    flag1++;
+//                    log.info("模糊匹配--->"+cPreVMWeibo.getContent());
+//                    log.info("匹配清理后---->"+CleanText(cPreVMWeibo.getContent()));
+//                }else{
+//                    preNode.setFlag(2);
+//                    flag2++;
+//                    log.info("更模糊匹配--->"+cPreVMWeibo.getContent());
+//                    log.info("匹配清理后---->"+CleanText(cPreVMWeibo.getContent()));
+//                }
+//            }
+//
+//            forwardList.add(preNode.toString());
+//            log.info("--------------------------结束---------------------------");
+//        }
+//
+//        if (count!=0){
+//            f0 = new BigDecimal((double) flag0 / (double) count).setScale(3, BigDecimal.ROUND_HALF_UP).doubleValue();
+//            f1 = new BigDecimal((double) flag1 / (double) count).setScale(3, BigDecimal.ROUND_HALF_UP).doubleValue();
+//            f2 = new BigDecimal((double) flag2 / (double) count).setScale(3, BigDecimal.ROUND_HALF_UP).doubleValue();
+//            f3 = new BigDecimal((double) flag3 / (double) count).setScale(3, BigDecimal.ROUND_HALF_UP).doubleValue();
+//            f4 = new BigDecimal((double) flag4 / (double) count).setScale(3, BigDecimal.ROUND_HALF_UP).doubleValue();
+//            f5 = new BigDecimal((double) flag5 / (double) count).setScale(3, BigDecimal.ROUND_HALF_UP).doubleValue();
+//        }
+//
+//        NodeResult result = new NodeResult(sourceId, count, flag0, f0, flag1, f1,flag2, f2,flag3, f3,flag4, f4, flag5, f5);
+//        log.info(result.toString());
+//        //保存成json文件
+//        FileTool fileTool = new FileTool();
+//        String fileName = "G:\\微博数据\\data2\\tree\\treeNode-" + sourceId + buguseridflag + ".json";
+//        fileTool.writeByLinestoJson(fileName, forwardList);
+//        return result;
+//    }
 
     public static Logger getLogger(String logName) {
         String logFile="E:\\微博数据\\data\\log\\"+logName;
@@ -247,6 +492,22 @@ public class DataClean{
         return cleanContent.trim();
     }
 
+    public static Date longToDate(long lo){
+        Date date = new Date(lo);
+        return date;
+    }
+
+    public static int compareTime(long a,long b){
+        int result = 0;
+        if(a>b){
+            result = 1;
+        }
+        if (a<b){
+            result = -1;
+        }
+        return result;
+    }
+
     public void savetreedata(){
         try{
             System.out.println("起始时间:"+new Date());
@@ -277,7 +538,7 @@ public class DataClean{
      */
     public void findroot(){
         try{
-            DBWeibo db = new DBWeibo("weibo", "REPOST", "localhost", 27017);
+            DBWeibo db = new DBWeibo("weibo2", "weibotest", "localhost", 27017);
             MongoCollection<Weibo> coll = db.getWeiboCollection();
             MongoCursor<Weibo> cursor = coll.find(new BasicDBObject("sourceWeiboId", "")).batchSize(10000).iterator();//sourceWeiboId为空
             Weibo weibo = null;
@@ -287,6 +548,7 @@ public class DataClean{
                 String sourceWeiboId=weibo.getWeiboId();
                 BasicDBObject query =new BasicDBObject();
                 query.put("sourceWeiboId",sourceWeiboId);//sourceWeiboId相同的节点，也就是一棵转发树
+
                 long count=coll.count(query);
                 String rootCount= Json.createObjectBuilder()
                         .add("sourceWeiboId", sourceWeiboId)
@@ -296,7 +558,7 @@ public class DataClean{
             }
             //保存成json文件
             FileTool fileTool=new FileTool();
-            fileTool.writeByLinestoJson("E:\\微博数据\\data\\Node数据不为0.json",rootCountList);
+            fileTool.writeByLinestoJson("G:\\微博数据\\data2\\Node数据不为0.json",rootCountList);
             System.out.println("成功!");
         }catch(Exception e){
             System.err.println( e.getClass().getName() + ": " + e.getMessage() );
@@ -306,44 +568,44 @@ public class DataClean{
     /**
      * 找到数据库中的根节点，找出根微博所对应完整的树
      */
-    public void findtree(){
-        try{
-            DBWeibo db = new DBWeibo("weibo", "REPOST", "localhost", 27017);
-            MongoCollection<Weibo> coll = db.getWeiboCollection();
-
-            FindIterable<Weibo> findIterable = coll.find(new BasicDBObject("sourceWeiboId", "")).noCursorTimeout(true);//游标可能超时
-            MongoCursor<Weibo> cursor = findIterable.batchSize(10000).iterator();//sourceWeiboId为空
-
-            Weibo weibo = null;
-            String sourceWeiboId = null;
-            long count=0;
-            int num = 0;
-            while (cursor.hasNext()) {
-                weibo = cursor.next();
-                sourceWeiboId = weibo.getWeiboId();
-                BasicDBObject query = new BasicDBObject();
-                count = coll.count(query);
-                this.ReadTree(sourceWeiboId,(int)count,coll);
-                num++;
-                System.out.println(num);
-            }
-
-        }catch(Exception e){
-            System.err.println( e.getClass().getName() + ": " + e.getMessage() );
-        }
-    }
+//    public void findtree(){
+//        try{
+//            DBWeibo db = new DBWeibo("weibo", "REPOST", "localhost", 27017);
+//            MongoCollection<Weibo> coll = db.getWeiboCollection();
+//
+//            FindIterable<Weibo> findIterable = coll.find(new BasicDBObject("sourceWeiboId", "")).noCursorTimeout(true);//游标可能超时
+//            MongoCursor<Weibo> cursor = findIterable.batchSize(10000).iterator();//sourceWeiboId为空
+//
+//            Weibo weibo = null;
+//            String sourceWeiboId = null;
+//            long count=0;
+//            int num = 0;
+//            while (cursor.hasNext()) {
+//                weibo = cursor.next();
+//                sourceWeiboId = weibo.getWeiboId();
+//                BasicDBObject query = new BasicDBObject();
+//                count = coll.count(query);
+//                this.ReadTree(sourceWeiboId,(int)count,coll);
+//                num++;
+//                System.out.println(num);
+//            }
+//
+//        }catch(Exception e){
+//            System.err.println( e.getClass().getName() + ": " + e.getMessage() );
+//        }
+//    }
 
     /**
      * 先构建一个根节点列表，按照根节点去遍历
      * @throws IOException
      */
-    public void savetree() throws IOException{
-        File file = new File("G:\\微博数据\\data\\Node数据不为0.json");
+    public void savetree(int n) throws IOException{
+        File file = new File("G:\\微博数据\\data2\\Node数据不为0.json");
         FileInputStream fis = new FileInputStream(file);
         InputStreamReader isr = new InputStreamReader(fis);
         BufferedReader br = new BufferedReader(isr);
 
-        DBWeibo db = new DBWeibo("weibo", "REPOST", "localhost", 27017);
+        DBWeibo db = new DBWeibo("weibo2", "weibotest", "localhost", 27017);
         MongoCollection<Weibo> coll = db.getWeiboCollection();
         String regEx="[^0-9]";
         Pattern p = Pattern.compile(regEx);
@@ -363,7 +625,7 @@ public class DataClean{
         }
         System.out.println(sourceweiboIdlist.size()+" "+countlist.size());
 
-        for(int i=57701;i<sourceweiboIdlist.size();i++){
+        for(int i=n;i<sourceweiboIdlist.size();i++){
             String s = sourceweiboIdlist.get(i);
             int c = countlist.get(i);
             this.ReadTree(s,c,coll);
@@ -374,13 +636,14 @@ public class DataClean{
     public static void main(String args[]){
         DataClean dataClean = new DataClean();
 //        dataClean.findroot();
+//        dataClean.findroot();
 //        dataClean.savetreedata();
 //        DBWeibo db = new DBWeibo("weibo", "REPOST", "localhost", 27017);
 //        MongoCollection<Weibo> coll = db.getWeiboCollection();
 //        dataClean.findtree();
 //        db.close();
         try {
-            dataClean.savetree();
+            dataClean.savetree(8850);
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -134,32 +134,30 @@ public class BerkeleyDB<T> {
     }
 
     //遍历一个文件夹中的数据
-    public List<T> getData() {
+    public void getData() {
         // 连接到 mongodb 服务
         MongoClient mongoClient = new MongoClient( "localhost" , 27017 );
         // 连接到数据库
         MongoDatabase mongoDatabase = mongoClient.getDatabase("weibo2");
         System.out.println("Connect to database successfully");
-        MongoCollection<Document> collection = mongoDatabase.getCollection("test");
+        MongoCollection<DBObject> collection = mongoDatabase.getCollection("test", DBObject.class);
         System.out.println("集合 test 选择成功");
 
-
         // DatabaseEntry represents the key and data of each record
-        DatabaseEntry keyEntry = new DatabaseEntry();    DatabaseEntry dataEntry = new DatabaseEntry();
+        DatabaseEntry keyEntry = new DatabaseEntry();
+        DatabaseEntry dataEntry = new DatabaseEntry();
         // retrieve all data
         Cursor cursor = db.openCursor(null, null);
         while (cursor.getNext(keyEntry, dataEntry, LockMode.DEFAULT) == OperationStatus.SUCCESS) {
             int key = IntegerBinding.entryToInt(keyEntry);
             T value = bind.entryToObject(dataEntry);
             Weibo v = (Weibo) value;
-            Document s = new Document();
-            s.append("content",v.toString());
-            collection.insertOne(s);
+
+            DBObject weiboObject = (DBObject)JSON.parse(v.toString());
+            collection.insertOne(weiboObject);
+
         }
         cursor.close();
-
-        // 返回结果
-        return null;
     }
 
     public boolean contains(String key) {

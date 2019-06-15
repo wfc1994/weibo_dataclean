@@ -5,7 +5,7 @@ import javax.json.JsonObjectBuilder;
 import java.io.Serializable;
 import java.util.Date;
 
-public class Weibo implements Serializable, Comparable<Weibo> {
+public class Weibo_origin implements Serializable, Comparable<Weibo_origin> {
 
     private static final long serialVersionUID = 2013074196271988658L;
 
@@ -16,10 +16,10 @@ public class Weibo implements Serializable, Comparable<Weibo> {
         Hot
     }
 
-    public Weibo() { }
+    public Weibo_origin() { }
 
-    public Weibo(String userId, String userName, String weiboId,
-                 Category category, String content, String url, Long time, String tag) {
+    public Weibo_origin(String userId, String userName, String weiboId,
+                        Category category, String content, String url, Date time, String tag) {
         this.weiboId = weiboId;
         this.userId = userId;
         this.userName = userName;
@@ -36,9 +36,9 @@ public class Weibo implements Serializable, Comparable<Weibo> {
         this.tag = tag;
     }
 
-    public Weibo(String userId, String userName, String weiboId,
-                 Category category, String content, String url, Long time, String tag,
-                 boolean isRepost, String preUser, String sourceUserId, String preWeiboId, String sourceWeiboId) {
+    public Weibo_origin(String userId, String userName, String weiboId,
+                        Category category, String content, String url, Date time, String tag,
+                        boolean isRepost, String preUser, String sourceUserId, String preWeiboId, String sourceWeiboId) {
         this(userId, userName, weiboId, category, content, url, time, tag);
         this.isRepost = isRepost;
         this.preUserName = preUser;
@@ -60,7 +60,7 @@ public class Weibo implements Serializable, Comparable<Weibo> {
     // 微博地址
     private String url = "";
     // 发布时间
-    private Long time = null;
+    private Date time = new Date();
     // 转发数
     private int repostNum = -1;
     // 评论数
@@ -138,11 +138,11 @@ public class Weibo implements Serializable, Comparable<Weibo> {
         this.url = url;
     }
 
-    public Long getTime() {
+    public Date getTime() {
         return time;
     }
 
-    public void setTime(Long time) {
+    public void setTime(Date time) {
         this.time = time;
     }
 
@@ -268,7 +268,7 @@ public class Weibo implements Serializable, Comparable<Weibo> {
                 .add("userName", userName)
                 .add("category", category.name())
                 .add("url", url)
-                .add("time", time)
+                .add("time", time.getTime())
                 .add("repostNum", repostNum)
                 .add("commentNum", commentNum)
                 .add("likeNum", likeNum)
@@ -283,7 +283,7 @@ public class Weibo implements Serializable, Comparable<Weibo> {
                 .add("content", content);
     }
 
-    public int compareTo(Weibo o) {
+    public int compareTo(Weibo_origin o) {
         return this.weiboId.compareTo(o.getWeiboId());
     }
 
@@ -294,7 +294,7 @@ public class Weibo implements Serializable, Comparable<Weibo> {
 
     @Override
     public boolean equals(Object obj) {
-        return (obj instanceof Weibo) && this.weiboId.equals(((Weibo) obj).weiboId);
+        return (obj instanceof Weibo_origin) && this.weiboId.equals(((Weibo_origin) obj).weiboId);
     }
 
     @Override

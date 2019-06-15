@@ -45,7 +45,7 @@ public class WeiboCodec implements Codec<Weibo> {
                     break;
                 }
                 case "time": {
-                    weibo.setTime(new Date(bsonReader.readDateTime()));
+                    weibo.setTime(bsonReader.readInt64());
                     break;
                 }
                 case "repostNum": {
@@ -120,7 +120,7 @@ public class WeiboCodec implements Codec<Weibo> {
             bsonWriter.writeString("category", weibo.getCategory().name());
             bsonWriter.writeString("content", weibo.getContent());
             bsonWriter.writeString("url", weibo.getUrl());
-            bsonWriter.writeDateTime("time", weibo.getTime().getTime());
+            bsonWriter.writeDateTime("time", weibo.getTime());
             bsonWriter.writeInt32("repostNum", weibo.getRepostNum());
             bsonWriter.writeInt32("commentNum", weibo.getCommentNum());
             bsonWriter.writeInt32("likeNum", weibo.getLikeNum());
